@@ -20,14 +20,7 @@ func convertHolidayToDTO(holiday Holiday) dto.CreateHolidayDTO {
 		Duration:  holiday.Duration,
 		FreeSlots: holiday.FreeSlots,
 		Price:     holiday.Price,
-		Location: dto.LocationDTO{
-			ID:       holiday.Location.ID,
-			Number:   holiday.Location.Number,
-			Country:  holiday.Location.Country,
-			City:     holiday.Location.City,
-			Street:   holiday.Location.Street,
-			ImageURL: holiday.Location.ImageURL,
-		},
+		Location:  holiday.LocationID,
 	}
 }
 
@@ -77,8 +70,22 @@ func (c *Controller) DeleteHoliday(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) GetHolidays(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+
+	holidays, err := c.service.GetHolidays(queryParams)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	holidaysJSON, err := json.Marshal(holidays)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Write(holidaysJSON)
 }
 
 func (c *Controller) GetHoliday(w http.ResponseWriter, r *http.Request) {

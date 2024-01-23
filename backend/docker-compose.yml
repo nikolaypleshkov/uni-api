@@ -1,23 +1,42 @@
 version: '3'
 
 services:
-  mypostgres:
-    image: postgres:latest
-    container_name: mypostgres
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydatabase
-    ports:
-      - "5432:5432"
-
   mygoapp:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      - mypostgres
+    tty: true
     ports:
       - "8080:8080"
+    restart: on-failure
+    volumes:
+      - .:/app
     environment:
-      DATABASE_URL: "user=myuser password=mypassword dbname=mydatabase sslmode=disable"
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mydatabase
+      - DATABASE_URL="user=myuser password=mypassword dbname=mydatabase sslmode=disable"
+    depends_on:
+      - mypostgres
+    networks:
+      - learning
+  mypostgres:
+    image: postgres:latest
+    container_name: mypostgres
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mydatabase
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+    networks:
+      - learning
+    ports:
+      - "5432:5432"
+
+volumes:
+  pg_data:
+  
+networks:
+  learning:
+    driver: bridge

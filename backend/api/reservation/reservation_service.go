@@ -2,16 +2,20 @@ package reservation
 
 import (
 	"database/sql"
+	"fmt"
 	"sync"
 
 	"github.com/nikolaypleshkov/uni-api/api/holiday"
 	"github.com/nikolaypleshkov/uni-api/api/reservation/dto"
 )
 
-type ReservationService struct {
-	HolidayService *holiday.Service
-	db             *sql.DB
-	mu             sync.Mutex
+type ReservationService interface {
+	GetAllReservations() ([]dto.ResponseReservationDTO, error)
+	CreateReservation(createDTO dto.CreateReservationDTO) (dto.ResponseReservationDTO, error)
+	UpdateReservation(updateDTO dto.UpdateReservationDTO) (dto.ResponseReservationDTO, error)
+	GetReservation(reservationID int64) (dto.ResponseReservationDTO, error)
+	DeleteReservation(reservationID int64) error
+	GetReservationByID(reservationID int64) (dto.ResponseReservationDTO, error)
 }
 
 type HolidayDTO struct {
@@ -23,14 +27,32 @@ type GetHolidayDTO struct {
 }
 
 type ReservationServiceImpl struct {
-	db *sql.DB
+	db             *sql.DB
+	HolidayService *holiday.Service
+	mu             sync.Mutex
 }
 
-func NewReservationService(db *sql.DB) *ReservationServiceImpl {
-	return &ReservationServiceImpl{db}
+func NewReservationService(db *sql.DB, holidayService *holiday.Service) *ReservationServiceImpl {
+	return &ReservationServiceImpl{
+		db:             db,
+		HolidayService: holidayService,
+	}
 }
 
-func (s *ReservationService) GetAllReservations() ([]dto.ResponseReservationDTO, error) {
+func (s *ReservationServiceImpl) ensureTableExists() error {
+	query := `
+        CREATE TABLE IF NOT EXISTS reservations (
+            id SERIAL PRIMARY KEY,
+            phone_number VARCHAR(255),
+            contact_name VARCHAR(255),
+            holiday_id INT
+        );
+    `
+	_, err := s.db.Exec(query)
+	return err
+}
+
+func (s *ReservationServiceImpl) GetAllReservations() ([]dto.ResponseReservationDTO, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -76,25 +98,34 @@ func (s *ReservationService) GetAllReservations() ([]dto.ResponseReservationDTO,
 	return reservations, nil
 }
 
-func (s *ReservationService) CreateReservation(createDTO dto.CreateReservationDTO) (dto.ResponseReservationDTO, error) {
+func (s *ReservationServiceImpl) CreateReservation(createDTO dto.CreateReservationDTO) (dto.ResponseReservationDTO, error) {
+	if err := s.ensureTableExists(); err != nil {
+		return dto.ResponseReservationDTO{}, err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	_, err := s.HolidayService.GetHolidayDTO(createDTO.HolidayID)
+	if err != nil {
+		return dto.ResponseReservationDTO{}, fmt.Errorf("associated holiday not found: %v", err)
+	}
+
 	query := `
-		INSERT INTO reservations (phone_number, contact_name, holiday_id)
-		VALUES ($1, $2, $3)
-		RETURNING id, phone_number, contact_name, holiday_id
-	`
+        INSERT INTO reservations (phone_number, contact_name, holiday_id)
+        VALUES ($1, $2, $3)
+        RETURNING id, phone_number, contact_name, holiday_id
+    `
 
 	row := s.db.QueryRow(
 		query,
 		createDTO.PhoneNumber,
 		createDTO.ContactName,
-		createDTO.Holiday.ID,
+		createDTO.HolidayID,
 	)
 
 	var createdReservation Reservation
-	err := row.Scan(
+	err = row.Scan(
 		&createdReservation.ID,
 		&createdReservation.PhoneNumber,
 		&createdReservation.ContactName,
@@ -106,7 +137,6 @@ func (s *ReservationService) CreateReservation(createDTO dto.CreateReservationDT
 	}
 
 	holidayDTO, err := s.HolidayService.GetHolidayDTO(createdReservation.HolidayID)
-
 	if err != nil {
 		return dto.ResponseReservationDTO{}, err
 	}
@@ -121,7 +151,7 @@ func (s *ReservationService) CreateReservation(createDTO dto.CreateReservationDT
 	return responseDTO, nil
 }
 
-func (s *ReservationService) UpdateReservation(updateDTO dto.UpdateReservationDTO) (dto.ResponseReservationDTO, error) {
+func (s *ReservationServiceImpl) UpdateReservation(updateDTO dto.UpdateReservationDTO) (dto.ResponseReservationDTO, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -166,7 +196,7 @@ func (s *ReservationService) UpdateReservation(updateDTO dto.UpdateReservationDT
 	return responseDTO, nil
 }
 
-func (s *ReservationService) GetReservation(reservationID int64) (dto.ResponseReservationDTO, error) {
+func (s *ReservationServiceImpl) GetReservation(reservationID int64) (dto.ResponseReservationDTO, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -201,7 +231,7 @@ func (s *ReservationService) GetReservation(reservationID int64) (dto.ResponseRe
 	return responseDTO, nil
 }
 
-func (s *ReservationService) DeleteReservation(reservationID int64) error {
+func (s *ReservationServiceImpl) DeleteReservation(reservationID int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -215,7 +245,7 @@ func (s *ReservationService) DeleteReservation(reservationID int64) error {
 	return nil
 }
 
-func (s *ReservationService) GetReservationByID(reservationID int64) (dto.ResponseReservationDTO, error) {
+func (s *ReservationServiceImpl) GetReservationByID(reservationID int64) (dto.ResponseReservationDTO, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -10,10 +10,10 @@ import (
 )
 
 type ReservationController struct {
-	ReservationService *ReservationService
+	reservationService ReservationService
 }
 
-func NewReservationController(service *ReservationService) *ReservationController {
+func NewReservationController(service ReservationService) *ReservationController {
 	return &ReservationController{service}
 }
 
@@ -24,7 +24,7 @@ func (c *ReservationController) CreateReservation(w http.ResponseWriter, r *http
 		return
 	}
 
-	createdReservation, err := c.ReservationService.CreateReservation(createReservationDTO)
+	createdReservation, err := c.reservationService.CreateReservation(createReservationDTO)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -42,7 +42,7 @@ func (c *ReservationController) DeleteReservation(w http.ResponseWriter, r *http
 		return
 	}
 
-	err = c.ReservationService.DeleteReservation(reservationID)
+	err = c.reservationService.DeleteReservation(reservationID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -52,7 +52,7 @@ func (c *ReservationController) DeleteReservation(w http.ResponseWriter, r *http
 }
 
 func (c *ReservationController) GetAllReservations(w http.ResponseWriter, r *http.Request) {
-	reservations, err := c.ReservationService.GetAllReservations()
+	reservations, err := c.reservationService.GetAllReservations()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -70,7 +70,7 @@ func (c *ReservationController) GetReservationByID(w http.ResponseWriter, r *htt
 		return
 	}
 
-	reservation, err := c.ReservationService.GetReservationByID(reservationID)
+	reservation, err := c.reservationService.GetReservationByID(reservationID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -87,7 +87,7 @@ func (c *ReservationController) UpdateReservation(w http.ResponseWriter, r *http
 		return
 	}
 
-	updatedReservation, err := c.ReservationService.UpdateReservation(updateReservationDTO)
+	updatedReservation, err := c.reservationService.UpdateReservation(updateReservationDTO)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -23,7 +23,26 @@ func NewLocationService(db *sql.DB) *LocationServiceImpl {
 	return &LocationServiceImpl{db}
 }
 
+func (s *LocationServiceImpl) ensureTableExists() error {
+	query := `
+        CREATE TABLE IF NOT EXISTS locations (
+            id SERIAL PRIMARY KEY,
+            number VARCHAR(255),
+            country VARCHAR(255),
+            city VARCHAR(255),
+            street VARCHAR(255),
+            image_url VARCHAR(255)
+        );
+    `
+	_, err := s.db.Exec(query)
+	return err
+}
+
 func (s *LocationServiceImpl) CreateLocation(createLocationDTO dto.CreateLocationDTO) (dto.ResponseLocationDTO, error) {
+	if err := s.ensureTableExists(); err != nil {
+		return dto.ResponseLocationDTO{}, err
+	}
+
 	query := `
 		INSERT INTO locations (number, country, city, street, image_url)
 		VALUES ($1, $2, $3, $4, $5)
